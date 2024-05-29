@@ -1,0 +1,52 @@
+version: '3.9'
+
+networks:
+  medcare-network:
+    external:
+      name: medcare-network
+
+
+services:
+  mongodb:
+    image: mongo
+    container_name: mongodbcluster
+    command: [ "--replSet", "rs0", "--bind_ip_all","--port", "27017"]
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test: test $$(echo "rs.initiate({_id:'rs0',members:[{_id:0,host:\"mongodbcluster:27017\"}]}).ok || rs.status().ok" | mongosh --port 27017 --quiet) -eq 1
+      interval: 10s
+      start_period: 30s  
+    networks:
+      - medcare-network 
+   
+  medcare-admin-container:
+    image: "nithi007/medcare-admin"
+    container_name: medcare-admin-container
+    ports:
+      - "4020:4020"
+    depends_on:
+      - mongodb
+    networks:
+      - medcare-network
+
+  medcare-mailgun-container:
+    image: "nithi007/medcare-mailgun"
+    container_name: medcare-mailgun-container
+    ports:
+      - "5005:5005"
+    depends_on:
+      - mongodb
+    networks:
+      - medcare-network
+
+  medcare-container:
+    image: "nithi007/medcare"
+    container_name: medcare-container
+    ports:
+      - "5000:5000"
+    depends_on:
+      - mongodb
+      - medcare-mailgun-container
+    networks:
+      - medcare-network
